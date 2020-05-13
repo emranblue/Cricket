@@ -1,122 +1,119 @@
 import sqlite3 as sql
 from collections import Counter as count
-import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation as fn
+db=sql.connect('{}.db'.format('Tournament'))
+db2=sql.connect('{}.db'.format('Tournament'))
+cur=db.cursor()    
+cur2=db2.cursor()
 class Game:
-    def __init__(self,db_name='player',game_name='socks',num_player=4,T_over=2):
+    def __init__(self,game_name='socks',num_player=4,T_over=2):
         self.game_name=game_name
         self.num_player=num_player
         self.T_over=T_over
-        self.db=sql.connect('{}.db'.format(db_name))
-        self.cur=self.db.cursor()    
     def create_table(self):
         try:
-            self.cur.execute("create table {}(player_name text,run int,six int,four int)".format(self.game_name))
-            self.cur.execute("create table {}(run int)".format(self.game_name+'_run'))
-            self.cur.execute("insert into {}(run) values(?)",(0))
-            self.db.commit()
+            cur.execute("create table {}(player_name text,run int,six int,four int)".format(self.game_name))
+            cur2.execute("create table {}(run int)".format(self.game_name+'_run'))
+            db.commit()
+            db2.commit()
         except:
             print('game already played,start another new game')
     def gen_player():
         return [[input('player name:'),[]],[input('player name:'),[]]]    
     def new_player():
         return [input('player name:'),[]]  
+    def update_score(self,run):
+        cur2.execute("update {} set run=(?)".format(self.game_name+'_run'),(run,))
+        db2.commit()  
+    def score_card_update(self,x,y):
+        n=count(x)
+        cur.execute("update {} set run=?,six=?,four=? where player_name=?".format(self.game_name),(sum(x),n[4],n[6],y))
+        db.commit()  
+    def out_info(self,x,y,total_out):
+        n=count(y)
+        print('{} is out run({}) four({}) six({})'.format(x,sum(y),n[4],n[6]))
+        total_out+=1
+        return total_out
+    def insert_ran_chart(self,x,y):
+        n=count(y)
+        cur.execute("insert into {}(player_name,run,six,four) values(?,?,?,?)".format(self.game_name),(x,sum(y),n[6],n[4]))
+        db.commit()
+    def insert_run(self,run):
+        cur2.execute("insert into {}(run) values(?)".format(self.game_name+'_run'),(run,))
+        db2.commit() 
+    def swap(x):
+        x[0],x[1]=x[1],x[0]
+    def insert_new_player(self,x,y):
+        n=count(y)
+        cur.execute("insert into {}(player_name,run,six,four) values(?,?,?,?)".format(self.game_name),(x,sum(y),n[6],n[4]))
+        db.commit()         
     def play(self):
         player=Game.gen_player()
         total_out=0
         stat='0'
-        strick=0
-        non_strick=1
+        strick=[0,1]
         run=0
         temp=0
         bowl=0
         over=0
+        self.insert_ran_chart(player[strick[0]][0],player[strick[0]][1])
+        self.insert_ran_chart(player[strick[1]][0],player[strick[1]][1])
+        self.insert_run(run)
         while (over+1<=self.T_over and total_out<self.num_player):
-            stat=input('{}/{} over:{}.{} event:({}):: '.format(run,total_out,over,bowl%6,player[strick][0])) 
+            stat=input('{}/{} over:{}.{} event:({}):: '.format(run,total_out,over,bowl%6,player[strick[0]][0])) 
             if stat=='wd':
                 run+=1
-                self.cur.execute("update {} set run={}".format(self.game_name+'_run',run))
-                self.db.commit()
+                self.update_score(run)
             elif stat=='nb':
                 run+=1  
-                self.cur.execute("update {} set run={}".format(self.game_name+'_run',run))
-                self.db.commit() 
+                self.update_score(run) 
             elif stat=='4wd' or stat=='4nb':
                 run+=5  
-                self.cur.execute("update {} set run={}".format(self.game_name+'_run',run))
-                self.db.commit()      
+                self.update_score(run)      
             elif stat=='back':
-                total=player[strick][1]+player[non_strick][1]
+                total=player[strick[0]][1]+player[strick[1]][1]
                 cut=total.pop()  
                 if cut%2==0:
-                    player[strick][1].pop()
+                    player[strick[0]][1].pop()
                 else:
-                    player[non_strick][1].pop()  
-                    temp=non_strick
-                    non_strick=strick
-                    strick=temp  
+                    player[strick[1]][1].pop()  
+                    Game.swap(strick)  
                 run-=cut
-                self.cur.execute("update {} set run={}".format(self.game_name+'_run',run))
-                self.db.commit()
+                self.update_score(run)
                 bowl-=1
             elif stat in ('0','1','2','3','4','6'):
                 bowl+=1
                 over=(bowl//6) 
                 run+=int(stat)
-                self.cur.execute("update {} set run={}".format(self.game_name+'_run',run))
-                self.db.commit()
+                self.update_score(run)
                 if int(stat)%2:
-                    player[strick][1].append(int(stat))
+                    player[strick[0]][1].append(int(stat))
+                    self.score_card_update(player[strick[0]][1],player[strick[0]][0])
                     if bowl%6==0:
                         pass
                     else:
-                        temp=non_strick
-                        non_strick=strick
-                        strick=temp
+                        Game.swap(strick)
                 elif int(stat)%2==0:
-                    player[strick][1].append(int(stat)) 
+                    player[strick[0]][1].append(int(stat)) 
+                    self.score_card_update(player[strick[0]][1],player[strick[0]][0])
                     if bowl%6==0:
-                        temp=non_strick
-                        non_strick=strick
-                        strick=temp   
+                        Game.swap(strick)   
             elif stat=='out':
                 bowl+=1
                 over=(bowl//6) 
-                if strick==0:
-                    n=count(player[strick][1])
-                    print('{} is out run({}) four({}) six({})'.format(player[strick][0],sum([j for j in player[strick][1]]),n[4],n[6]))
-                    total_out+=1
-                    self.cur.execute("insert into {}(player_name,run,six,four) values(?,?,?,?)".format(self.game_name),(player[strick][0],sum([j for j in player[strick][1]]),n[4],n[6]))
-                    self.db.commit()
-                    [player[strick][0],player[strick][1]]=Game.new_player()
-                elif strick:
-                    n=count(player[strick][1])
-                    print('{} is out run({}) four({}) six({})'.format(player[strick][0],sum([j for j in player[strick][1]]),n[4],n[6]))
-                    total_out+=1
-                    self.cur.execute("insert into {}(player_name,run,six,four) values(?,?,?,?)".format(self.game_name),(player[strick][0],sum([j for j in player[strick][1]]),n[4],n[6]))
-                    self.db.commit() 
-                    [player[strick][0],player[strick][1]]=Game.new_player() 
+                if strick[0]==0:
+                    total_out=self.out_info(player[strick[0]][0],player[strick[0]][1],total_out)
+                    [player[strick[0]][0],player[strick[0]][1]]=Game.new_player()
+                    self.insert_new_player(player[strick[0]][0],player[strick[0]][1])
+                elif strick[0]:
+                    total_out=self.out_info(player[strick[0]][0],player[strick[0]][1],total_out)
+                    [player[strick[0]][0],player[strick[0]][1]]=Game.new_player()
+                    self.insert_new_player(player[strick[0]][0],player[strick[0]][1])
             else:
-                print('wrong input')
-            n=count(player[strick][1])
-            m=count(player[non_strick][1])
-            self.cur.execute("update {} set run={},six={},four={}".format(self.game_name,sum([j for j in player[strick][1]]),n[4],n[6]))    
-            self.cur.execute("update {} set run={},six={},four={}".format(self.game_name,sum([j for j in player[non_strick][1]]),m[4],m[6])) 
+                print('wrong input')  
+                
     def close(self):
-        self.db.close()
-    def graph(self):
-        fig,ax=plt.subplots() 
-        def animate(i):
-            #x=[]
-            y=[]
-            self.cur.execute("select * from {}".format(self.game_name+'_run'))
-            p=self.cur.fetchall()
-            y.append(p)
-            ax.clear()
-            ax.plot(y)
-        anim=fn(fig,animate,interval=1000)
-        plt.show()    
+        db.close()    
     def show_data(self):
-        self.cur.execute("select * from {}".format(self.game_name))
-        return self.cur.fetchall()        
+        cur.execute("select * from {}".format(self.game_name))
+        return cur.fetchall()        
             
