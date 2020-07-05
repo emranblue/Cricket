@@ -45,7 +45,7 @@ elif len(sys.argv)==3:
             linewidth=1.5
             
         else:
-            color='#1C0DF2'
+            color='green'
             aplha=0.5
             linewidth=1.5   
         plt.plot(x,y,color=color,alpha=aplha,linewidth=linewidth,label=label) 
