@@ -2,9 +2,9 @@
 import cricbase as cr
 import sys
 import matplotlib.pyplot as plt
-if len(sys.argv)<3:
-    print('provide team names both ')
-elif len(sys.argv)==3:  
+if len(sys.argv)<5:
+    print('Read the manual file and provide appropiate argument')
+elif len(sys.argv)==5:  
     game_name=input('game name:')
     toss=input('Toss:')
     if toss==sys.argv[1]:
@@ -17,7 +17,7 @@ elif len(sys.argv)==3:
     #fig,ax=plt.subplots()
     print('1st innings')
     for num in range(2):  
-        game=cr.Game(sys.argv[num+1])
+        game=cr.Game(sys.argv[num+1],sys.argv[-2],sys.argv[-1])
         game.create_table()
         game.play(num,sys.argv[1])
         i=1
